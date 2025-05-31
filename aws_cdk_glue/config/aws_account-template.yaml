@@ -1,0 +1,8 @@
+# Mapping aws name with the right aws account id
+- name: sandpit1
+  account_id: "your aws account id"
+  ingestion:
+    input_bucket: your-input-bucket-name
+    output_bucket: your-output-bucket-name
+- name: sandpit2
+  account_id: "your aws account id"

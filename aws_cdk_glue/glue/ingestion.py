@@ -1,0 +1,60 @@
+from aws_cdk import (
+    aws_glue as glue,
+    aws_iam as iam,
+    aws_s3_assets as s3_assets,
+)
+from constructs import Construct
+import os.path as path
+
+
+class GlueIngestionConstruct(Construct):
+
+    def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, **kwargs) -> None:
+        super().__init__(scope, id, **kwargs)
+        self.env_name = env_name
+        self.input_bucket = input_bucket
+        self.output_bucket = output_bucket
+
+        # Define an IAM role for the Glue job
+        glue_role = iam.Role(
+            self,
+            "GlueJobRole",
+            assumed_by=iam.ServicePrincipal("glue.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name(
+                    "service-role/AWSGlueServiceRole"
+                )
+            ],
+        )
+
+        # Upload the Glue script to an S3 bucket using an S3 asset
+        glue_script_asset = s3_assets.Asset(
+            self,
+            "GlueScriptAsset",
+            path=path.join(
+                path.dirname(__file__), "../../scripts/ingest_data.py"
+            ),  # Replace with the local path to your script
+        )
+
+        glue_script_asset.grant_read(glue_role)
+
+        # Define the Glue job
+        glue.CfnJob(
+            self,
+            "IngestionGlueJob",
+            name=f"IngestionGlueJob-{env_name}",
+            role=glue_role.role_arn,
+            command={
+                "name": "glueetl",
+                "scriptLocation": glue_script_asset.s3_object_url,
+                "pythonVersion": "3",
+            },
+            default_arguments={
+                "--input_bucket": input_bucket,
+                "--output_bucket": output_bucket,
+                "--env_name": env_name,
+            },
+            max_retries=1,
+            timeout=10,
+            glue_version="5.0",
+        )
