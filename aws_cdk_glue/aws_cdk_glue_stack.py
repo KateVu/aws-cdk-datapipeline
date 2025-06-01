@@ -15,4 +15,6 @@ class DataPipelineStack(Stack):
             env_name=env_name,
             input_bucket=account_config["ingestion"]["input_bucket"],
             output_bucket=account_config["ingestion"]["output_bucket"],
+            error_bucket=account_config["ingestion"]["error_bucket"],
+            file_names=account_config["ingestion"]["file_names"],
         )

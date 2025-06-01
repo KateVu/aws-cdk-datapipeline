@@ -9,11 +9,13 @@ import os.path as path
 
 class GlueIngestionConstruct(Construct):
 
-    def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, error_bucket: str, file_names: list, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
         self.env_name = env_name
         self.input_bucket = input_bucket
         self.output_bucket = output_bucket
+        self.error_bucket = error_bucket
+        self.file_names = file_names
 
         # Define an IAM role for the Glue job
         glue_role = iam.Role(
@@ -50,9 +52,11 @@ class GlueIngestionConstruct(Construct):
                 "pythonVersion": "3",
             },
             default_arguments={
+                "--env_name": env_name,                
                 "--input_bucket": input_bucket,
                 "--output_bucket": output_bucket,
-                "--env_name": env_name,
+                "--error_bucket": error_bucket,
+                "--file_names": ",".join(file_names),
             },
             max_retries=1,
             timeout=10,
