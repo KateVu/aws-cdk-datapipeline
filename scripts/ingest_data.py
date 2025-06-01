@@ -2,6 +2,7 @@ import sys
 import logging
 from datetime import datetime
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import lit
 from awsglue.utils import getResolvedOptions
 import boto3
 
@@ -12,7 +13,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def check_files_exist(s3_client, bucket, file_names):
+def check_files_exist(s3_client, bucket, env_name, file_path, file_names):
     """
     Check if the specified files exist in the given S3 bucket.
 
@@ -22,16 +23,16 @@ def check_files_exist(s3_client, bucket, file_names):
     """
     for file_name in file_names:
         try:
-            s3_client.head_object(Bucket=bucket, Key=file_name)
-            logger.info(f"File {file_name} exists in bucket {bucket}.")
+            s3_client.head_object(Bucket=bucket, Key=f"{env_name}/{file_path}/{file_name}")
+            logger.info(f"File {env_name}/{file_path}/{file_name} exists in bucket {bucket}.")
         except s3_client.exceptions.ClientError as e:
             logger.error(
-                f"File {file_name} does not exist in bucket {bucket}. Exiting."
+                f"File {env_name}/{file_path}/{file_name} does not exist in bucket {bucket}: {e} Exiting."
             )
             sys.exit(1)
 
 
-def process_file(spark, input_bucket, output_bucket, file_name, env_name):
+def process_file(spark, input_bucket, output_bucket, file_path, file_name, env_name):
     """
     Process a single file: read from S3, transform, and write to S3.
 
@@ -41,22 +42,28 @@ def process_file(spark, input_bucket, output_bucket, file_name, env_name):
     :param file_name: Name of the file to process
     :param env_name: Environment name (e.g., dev, prod)
     """
-    input_s3_path = f"s3://{input_bucket}/{file_name}"
-    output_s3_path = f"s3://{output_bucket}/{env_name}/{file_name.split('.')[0]}/"  # Save output in a folder named after the file (with env_name)
+    # Get the current UTC time for folder structure
+    current_time = datetime.utcnow()
+    year = current_time.strftime("%Y")
+    month = current_time.strftime("%m")
+    date = current_time.strftime("%d")
+    time = current_time.strftime("%H-%M-%S")
+
+    input_s3_path = f"s3://{input_bucket}/{env_name}/{file_path}/{file_name}"
+    output_s3_path = f"s3://{output_bucket}/{env_name}/{file_path}/{year}/{month}/{date}/{time}/{file_name.split('.')[0]}/"  # Save output in a folder with year/month/date/time structure
 
     logger.info(f"Processing file: {file_name}")
     logger.info(f"Reading from: {input_s3_path}")
-    logger.info(f"Writing to: {output_s3_path}")
 
     # Get the current UTC time for ingestion start
-    ingestion_start_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    ingestion_start_time = current_time.strftime("%Y-%m-%d %H:%M:%S")
 
     # Read CSV file from S3
     df = spark.read.csv(input_s3_path, header=True, inferSchema=True)
-
+    logger.info(f"Finish reading file from s3")
     # Add ingestion_start_time column to the DataFrame
     df = df.withColumn(
-        "ingestion_start_time", spark.sql.functions.lit(ingestion_start_time)
+        "ingestion_start_time", lit(ingestion_start_time)
     )
 
     # Perform any transformations (optional)
@@ -68,10 +75,11 @@ def process_file(spark, input_bucket, output_bucket, file_name, env_name):
 
     # Add ingestion_finish_time column to the DataFrame
     df = df.withColumn(
-        "ingestion_finish_time", spark.sql.functions.lit(ingestion_finish_time)
+        "ingestion_finish_time", lit(ingestion_finish_time)
     )
 
     # Write the DataFrame to S3 in Parquet format
+    logger.info(f"Writing to: {output_s3_path}")    
     df.write.parquet(output_s3_path, mode="overwrite")
     logger.info(f"Successfully processed and saved file: {file_name}")
 
@@ -81,17 +89,19 @@ def main():
     args = getResolvedOptions(
         sys.argv,
         [
-            "JOB_NAME",
+            "env_name",
             "input_bucket",
             "output_bucket",
+            "file_path",
             "file_names",
-            "env_name",  # Added env_name to the list of arguments
+            "JOB_NAME",
         ],
     )
 
     # Extract input and output S3 paths from arguments
     input_bucket = args["input_bucket"]
     output_bucket = args["output_bucket"]
+    file_path = args["file_path"]
     file_names = args["file_names"].split(
         ","
     )  # Expecting a comma-separated list of file names
@@ -101,14 +111,14 @@ def main():
     s3_client = boto3.client("s3")
 
     # Check if files exist in the input bucket
-    check_files_exist(s3_client, input_bucket, file_names)
+    check_files_exist(s3_client, input_bucket, env_name, file_path, file_names)
 
     # Initialize Spark session
     spark = SparkSession.builder.appName(args["JOB_NAME"]).getOrCreate()
 
     # Process each file
     for file_name in file_names:
-        process_file(spark, input_bucket, output_bucket, file_name, env_name)
+        process_file(spark, input_bucket, output_bucket, file_path, file_name, env_name)
 
     # Stop the Spark session
     spark.stop()

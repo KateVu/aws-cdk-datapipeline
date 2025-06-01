@@ -29,6 +29,27 @@ class GlueIngestionConstruct(Construct):
             ],
         )
 
+        # Add permissions to read from the input bucket and write to the output bucket
+        glue_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["s3:GetObject", "s3:ListBucket"],
+                resources=[
+                    f"arn:aws:s3:::{input_bucket}/{env_name}/*",
+                    f"arn:aws:s3:::{input_bucket}/{env_name}",
+                ],
+            )
+        )
+
+        glue_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
+                resources=[
+                    f"arn:aws:s3:::{output_bucket}/{env_name}/*",
+                    f"arn:aws:s3:::{output_bucket}/{env_name}",
+                ],
+            )
+        )
+
         # Upload the Glue script to an S3 bucket using an S3 asset
         glue_script_asset = s3_assets.Asset(
             self,
@@ -52,11 +73,12 @@ class GlueIngestionConstruct(Construct):
                 "pythonVersion": "3",
             },
             default_arguments={
-                "--env_name": env_name,                
+                "--env_name": env_name,
                 "--input_bucket": input_bucket,
                 "--output_bucket": output_bucket,
                 "--error_bucket": error_bucket,
                 "--file_names": ",".join(file_names),
+                "--file_path": "test",  # Assuming files are in a 'data' folder
             },
             max_retries=1,
             timeout=10,
