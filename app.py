@@ -2,7 +2,7 @@
 import os
 from aws_cdk import App, Environment, Tags
 
-from aws_cdk_glue.aws_cdk_glue_stack import DataPipelineStack
+from aws_cdk_glue.aws_cdk_datapipeline_stack import DataPipelineStack
 from aws_cdk_glue.utils.utils import get_config_account
 
 # Environment variables

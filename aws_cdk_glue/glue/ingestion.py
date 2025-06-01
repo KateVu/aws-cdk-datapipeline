@@ -7,16 +7,15 @@ from constructs import Construct
 import os.path as path
 
 
-class GlueIngestionConstruct(Construct):
+class GlueIngestion(Construct):
 
     def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, error_bucket: str, file_names: list, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
-        self.env_name = env_name
-        self.input_bucket = input_bucket
-        self.output_bucket = output_bucket
-        self.error_bucket = error_bucket
-        self.file_names = file_names
-
+        # self.env_name = env_name
+        # self.input_bucket = input_bucket
+        # self.output_bucket = output_bucket
+        # self.error_bucket = error_bucket
+        # self.file_names = file_names
         # Define an IAM role for the Glue job
         glue_role = iam.Role(
             self,
@@ -62,7 +61,7 @@ class GlueIngestionConstruct(Construct):
         glue_script_asset.grant_read(glue_role)
 
         # Define the Glue job
-        glue.CfnJob(
+        self.glue_job = glue.CfnJob(
             self,
             "IngestionGlueJob",
             name=f"IngestionGlueJob-{env_name}",
