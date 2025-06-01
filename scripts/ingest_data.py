@@ -32,7 +32,7 @@ def check_files_exist(s3_client, bucket, env_name, file_path, file_names):
             sys.exit(1)
 
 
-def process_file(spark, input_bucket, output_bucket, file_path, file_name, env_name):
+def process_file(spark, input_bucket, output_bucket, file_path, file_name, env_name, current_time):
     """
     Process a single file: read from S3, transform, and write to S3.
 
@@ -43,7 +43,7 @@ def process_file(spark, input_bucket, output_bucket, file_path, file_name, env_n
     :param env_name: Environment name (e.g., dev, prod)
     """
     # Get the current UTC time for folder structure
-    current_time = datetime.utcnow()
+    
     year = current_time.strftime("%Y")
     month = current_time.strftime("%m")
     date = current_time.strftime("%d")
@@ -117,8 +117,9 @@ def main():
     spark = SparkSession.builder.appName(args["JOB_NAME"]).getOrCreate()
 
     # Process each file
+    current_time = datetime.utcnow()    
     for file_name in file_names:
-        process_file(spark, input_bucket, output_bucket, file_path, file_name, env_name)
+        process_file(spark, input_bucket, output_bucket, file_path, file_name, env_name, current_time)
 
     # Stop the Spark session
     spark.stop()
