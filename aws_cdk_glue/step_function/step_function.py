@@ -1,6 +1,7 @@
 from aws_cdk import aws_stepfunctions as sfn
 from aws_cdk import aws_stepfunctions_tasks as tasks
 from constructs import Construct
+from aws_cdk import CfnOutput
 
 
 class StepFunction(Construct):
@@ -22,12 +23,20 @@ class StepFunction(Construct):
             integration_pattern=sfn.IntegrationPattern.RUN_JOB,
         )
 
-        # Define the Step Function workflow
-        definition = ingestion_glue_job_task
+        # Define the Step Function workflow using a Chain
+        definition = sfn.Chain.start(ingestion_glue_job_task)
 
-        # Create the Step Function
+        # Create the Step Function state machine
         self.state_machine = sfn.StateMachine(
             self,
             f"DataPipelineStateMachine-{env_name}",
-            definition=definition,
+            definition=definition,  # Use the Chain object here
+        )
+
+        # Output the Step Function ARN
+        CfnOutput(
+            self,
+            "StepFunctionArn",
+            value=self.state_machine.state_machine_arn,
+            description="The ARN of the Step Function for the data pipeline",
         )

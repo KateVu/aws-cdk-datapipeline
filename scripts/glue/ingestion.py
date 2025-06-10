@@ -50,7 +50,8 @@ def process_file(spark, input_bucket, output_bucket, file_path, file_name, env_n
     time = current_time.strftime("%H-%M-%S")
 
     input_s3_path = f"s3://{input_bucket}/{env_name}/{file_path}/{file_name}"
-    output_s3_path = f"s3://{output_bucket}/{env_name}/{file_path}/{year}/{month}/{date}/{time}/{file_name.split('.')[0]}/"  # Save output in a folder with year/month/date/time structure
+    # output_s3_path = f"s3://{output_bucket}/{env_name}/{file_path}/{year}/{month}/{date}/{time}/{file_name.split('.')[0]}/"  # Save output in a folder with year/month/date/time structure
+    output_s3_path = f"s3://{output_bucket}/{env_name}/{file_path}/{file_name.split('.')[0]}/"
 
     logger.info(f"Processing file: {file_name}")
     logger.info(f"Reading from: {input_s3_path}")

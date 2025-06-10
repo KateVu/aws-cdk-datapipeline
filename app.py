@@ -3,6 +3,7 @@ import os
 from aws_cdk import App, Environment, Tags
 
 from aws_cdk_glue.aws_cdk_datapipeline_stack import DataPipelineStack
+from aws_cdk_glue.s3_buckets_stack import S3BucketsStack
 from aws_cdk_glue.utils.utils import get_config_account
 
 # Environment variables
@@ -22,7 +23,7 @@ environment = Environment(account=account_id, region=region)
 
 app = App()
 
-# Create the stack
+# Create the data pipeline stack
 pipeline_stack = DataPipelineStack(
     app,
     construct_id="DataPipelineStack",
@@ -32,10 +33,28 @@ pipeline_stack = DataPipelineStack(
     env=environment,
 )
 
-# Add tags to the EC2 instance
+# Create the S3 buckets stack
+bucket_names = [
+    "kate-source-data",
+    "kate-staging-data",
+    "kate-error-staging-data",
+]
+s3_buckets_stack = S3BucketsStack(
+    app,
+    construct_id="S3BucketsStack",
+    bucket_names=bucket_names,
+    env=environment,
+)
+
+# Add tags to the stacks
 Tags.of(pipeline_stack).add("createdby", "KateVu")
 Tags.of(pipeline_stack).add("createdvia", "AWS-CDK")
 Tags.of(pipeline_stack).add("environment", env_name)
 Tags.of(pipeline_stack).add("repo", "https://github.com/KateVu/aws-cdk-glue")
+
+Tags.of(s3_buckets_stack).add("createdby", "KateVu")
+Tags.of(s3_buckets_stack).add("createdvia", "AWS-CDK")
+Tags.of(s3_buckets_stack).add("environment", env_name)
+Tags.of(s3_buckets_stack).add("repo", "https://github.com/KateVu/aws-cdk-glue")
 
 app.synth()

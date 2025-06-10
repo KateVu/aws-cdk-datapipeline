@@ -7,9 +7,9 @@ from constructs import Construct
 import os.path as path
 
 
-class GlueIngestion(Construct):
+class GlueContruct(Construct):
 
-    def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, error_bucket: str, file_names: list, **kwargs) -> None:
+    def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, error_bucket: str, file_names: list, script_file_path: str, glue_job_prefix: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
         # self.env_name = env_name
         # self.input_bucket = input_bucket
@@ -54,7 +54,7 @@ class GlueIngestion(Construct):
             self,
             "GlueScriptAsset",
             path=path.join(
-                path.dirname(__file__), "../../scripts/ingest_data.py"
+                path.dirname(__file__),script_file_path
             ),  # Replace with the local path to your script
         )
 
@@ -63,8 +63,8 @@ class GlueIngestion(Construct):
         # Define the Glue job
         self.glue_job = glue.CfnJob(
             self,
-            "IngestionGlueJob",
-            name=f"IngestionGlueJob-{env_name}",
+            glue_job_prefix + env_name,
+            name=f"{glue_job_prefix}-{env_name}",
             role=glue_role.role_arn,
             command={
                 "name": "glueetl",
@@ -77,7 +77,7 @@ class GlueIngestion(Construct):
                 "--output_bucket": output_bucket,
                 "--error_bucket": error_bucket,
                 "--file_names": ",".join(file_names),
-                "--file_path": "test",  # Assuming files are in a 'data' folder
+                "--file_path": "test",  # Assuming files are in a 'data' folder for now
             },
             max_retries=1,
             timeout=10,

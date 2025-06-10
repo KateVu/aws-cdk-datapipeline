@@ -1,7 +1,8 @@
-from aws_cdk import Stack, CfnOutput
+from aws_cdk import Stack
 from constructs import Construct
-from aws_cdk_glue.glue.ingestion import GlueIngestion
+from aws_cdk_glue.glue.glue_contruc import GlueContruct
 from aws_cdk_glue.step_function.step_function import StepFunction
+from aws_cdk_glue.athena.athena_table import AthenaTable
 
 
 class DataPipelineStack(Stack):
@@ -17,7 +18,7 @@ class DataPipelineStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         # Create the Glue ingestion construct
-        glue_ingestion = GlueIngestion(
+        glue_ingestion = GlueContruct(
             self,
             "GlueIngestion",
             env_name=env_name,
@@ -25,6 +26,8 @@ class DataPipelineStack(Stack):
             output_bucket=account_config["ingestion"]["output_bucket"],
             error_bucket=account_config["ingestion"]["error_bucket"],
             file_names=account_config["ingestion"]["file_names"],
+            script_file_path="../../scripts/glue/ingestion.py",  # Path to your Glue script
+            glue_job_prefix="IngestionJob",
         )
 
         # Create the Step Function
@@ -35,10 +38,14 @@ class DataPipelineStack(Stack):
             ingestion_glue_job_name=glue_ingestion.glue_job.name,
         )
 
-        # Output the Step Function ARN
-        CfnOutput(
+        # Create the Athena table
+        AthenaTable(
             self,
-            "StepFunctionArn",
-            value=step_function.state_machine.state_machine_arn,
-            description="The ARN of the Step Function for the data pipeline",
+            "AthenaTable",
+            env_name=env_name,
+            output_bucket=account_config["ingestion"]["output_bucket"],
+            account_id=account_config["account_id"],
+            region=self.region,
         )
+
+

@@ -1,1 +1,1 @@
-from .ingestion import GlueIngestion  # Importing GlueJob from ingestion module to make it accessible when the package is imported.
+from .glue_contruc import GlueContruct  # Importing GlueJob from ingestion module to make it accessible when the package is imported.
