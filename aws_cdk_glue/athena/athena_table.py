@@ -84,15 +84,6 @@ class AthenaTable(Construct):
         tag_key = "kate"
         tag_values = ["test"]
 
-        # cfn_tag = lakeformation.CfnTag(
-        #     self,
-        #     "DataPipelineCfnTag",
-        #     tag_key=tag_key,
-        #     tag_values=tag_values,
-        #     # the properties below are optional
-        #     # catalog_id=account_id,
-        # )
-
         # Define the Glue database
         glue_database = glue.CfnDatabase(
             self,
@@ -137,6 +128,33 @@ class AthenaTable(Construct):
                     catalog_id=account_id, name=f"{env_name}_database"
                 )
             ),
+        )
+
+        # Grant permissions for database
+        lakeformation.CfnPermissions(
+            self,
+            "LFDatabasePermissions",
+            data_lake_principal={"dataLakePrincipalIdentifier": crawler_role.role_arn},
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
+                    catalog_id=account_id, name=f"{env_name}_database"
+                ),
+            ),
+            permissions=["ALTER", "DROP", "DESCRIBE", "CREATE_TABLE"],
+        )
+
+        # Grant permissions for tables
+        lakeformation.CfnPermissions(
+            self,
+            "LFTagPermissions",
+            data_lake_principal={"dataLakePrincipalIdentifier": crawler_role.role_arn},
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                table_resource=lakeformation.CfnPermissions.TableResourceProperty(
+                    database_name=f"{env_name}_database",
+                    table_wildcard=lakeformation.CfnPermissions.TableWildcardProperty(),
+                )
+            ),
+            permissions=["SELECT", "ALTER", "DROP", "INSERT", "DESCRIBE"],
         )
 
         # tag_association.node.add_dependency(cfn_tag)
