@@ -1,6 +1,6 @@
 from aws_cdk import Stack
 from constructs import Construct
-from aws_cdk_glue.glue.glue_contruc import GlueContruct
+from aws_cdk_glue.glue.glue_contruct import GlueContruct
 from aws_cdk_glue.step_function.step_function import StepFunction
 from aws_cdk_glue.athena.athena_table import AthenaTable
 
@@ -43,9 +43,10 @@ class DataPipelineStack(Stack):
             self,
             "AthenaTable",
             env_name=env_name,
-            output_bucket=account_config["ingestion"]["output_bucket"],
+            staging_bucket=account_config["ingestion"]["output_bucket"],
             account_id=account_config["account_id"],
             region=self.region,
+            staging_file_names=account_config["ingestion"]["file_names"],
         )
 
 
