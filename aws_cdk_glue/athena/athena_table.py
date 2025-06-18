@@ -149,7 +149,7 @@ class AthenaTable(Construct):
         )
 
         # Grant permissions for database
-        test1 = lakeformation.CfnPermissions(
+        grant_database_access = lakeformation.CfnPermissions(
             self,
             "LFDatabasePermissions",
             data_lake_principal={
@@ -164,7 +164,7 @@ class AthenaTable(Construct):
         )
 
         tag_association.node.add_dependency(glue_database)
-        test1.node.add_dependency(glue_database, tag_association)
+        grant_database_access.node.add_dependency(glue_database, tag_association)
 
         for file_name in staging_file_names:
             # Create a Glue table for each file name
@@ -178,7 +178,7 @@ class AthenaTable(Construct):
                 glue_database=glue_database,
             )
             # Grant permissions for tables
-            test2 = lakeformation.CfnPermissions(
+            grant_table_access = lakeformation.CfnPermissions(
                 self,
                 f"StagingGlueTableLFTablePermissions-{file_name}",
                 data_lake_principal={
@@ -191,14 +191,14 @@ class AthenaTable(Construct):
                 ),
                 permissions=["SELECT", "ALTER", "DROP", "INSERT", "DESCRIBE"],
             )
-            test2.node.add_dependency(glue_database, tag_association)
+            grant_table_access.node.add_dependency(glue_database, tag_association)
 
             # Output the Glue table name
             CfnOutput(
                 self,
                 f"StagingGlueTableName-{file_name}",
                 value=glue_table.ref,
-                description=f"The name of the Glue table for {file_name}",
+                description=f"The name of the Staging Glue table for {file_name}",
             )
 
         # Define the Glue crawler
