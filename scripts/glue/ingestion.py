@@ -31,6 +31,25 @@ def check_files_exist(s3_client, bucket, env_name, file_path, file_names):
             )
             sys.exit(1)
 
+def delete_directory_in_s3(s3_client, bucket, directory_path):
+    """
+    Delete all files in the specified directory in the S3 bucket.
+
+    :param s3_client: Boto3 S3 client
+    :param bucket: Name of the S3 bucket
+    :param directory_path: Path of the directory to delete
+    """
+    try:
+        objects = s3_client.list_objects_v2(Bucket=bucket, Prefix=directory_path)
+        if "Contents" in objects:
+            for obj in objects["Contents"]:
+                s3_client.delete_object(Bucket=bucket, Key=obj["Key"])
+                logger.info(f"Deleted file: {obj['Key']} from bucket {bucket}")
+        else:
+            logger.info(f"No files found in {directory_path} to delete.")
+    except Exception as e:
+        logger.error(f"Error deleting directory {directory_path}: {e}")
+        sys.exit(1)
 
 def process_file(spark, input_bucket, output_bucket, file_path, file_name, env_name, current_time):
     """
@@ -113,6 +132,10 @@ def main():
 
     # Check if files exist in the input bucket
     check_files_exist(s3_client, input_bucket, env_name, file_path, file_names)
+
+    # Delete the entire directory in the output bucket before processing files
+    output_directory_path = f"{env_name}/{file_path}/"
+    delete_directory_in_s3(s3_client, output_bucket, output_directory_path)
 
     # Initialize Spark session
     spark = SparkSession.builder.appName(args["JOB_NAME"]).getOrCreate()

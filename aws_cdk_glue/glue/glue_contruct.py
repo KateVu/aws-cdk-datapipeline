@@ -11,11 +11,6 @@ class GlueContruct(Construct):
 
     def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, error_bucket: str, file_names: list, script_file_path: str, glue_job_prefix: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
-        # self.env_name = env_name
-        # self.input_bucket = input_bucket
-        # self.output_bucket = output_bucket
-        # self.error_bucket = error_bucket
-        # self.file_names = file_names
         # Define an IAM role for the Glue job
         glue_role = iam.Role(
             self,
@@ -41,7 +36,7 @@ class GlueContruct(Construct):
 
         glue_role.add_to_policy(
             iam.PolicyStatement(
-                actions=["s3:PutObject", "s3:GetObject", "s3:ListBucket"],
+                actions=["s3:PutObject", "s3:GetObject", "s3:ListBucket", "s3:DeleteObject"],
                 resources=[
                     f"arn:aws:s3:::{output_bucket}/{env_name}/*",
                     f"arn:aws:s3:::{output_bucket}/{env_name}",

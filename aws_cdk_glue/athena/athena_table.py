@@ -1,3 +1,4 @@
+import os
 from aws_cdk import aws_glue as glue
 from aws_cdk import aws_iam as iam
 from aws_cdk import CfnOutput
@@ -167,11 +168,14 @@ class AthenaTable(Construct):
         grant_database_access.node.add_dependency(glue_database, tag_association)
 
         for file_name in staging_file_names:
+            # Remove file type from file name
+            table_name = os.path.splitext(file_name)[0]  # Extract the base name without file extension
+
             # Create a Glue table for each file name
             glue_table = create_glue_table(
                 self,
-                f"StagingGlueTable-{file_name}",
-                table_name=file_name,  # Use the file name as the table name
+                f"StagingGlueTable-{table_name}",
+                table_name=table_name,  # Use the file name as the table name
                 env_name=env_name,
                 output_bucket=staging_bucket,
                 account_id=account_id,
@@ -196,9 +200,9 @@ class AthenaTable(Construct):
             # Output the Glue table name
             CfnOutput(
                 self,
-                f"StagingGlueTableName-{file_name}",
+                f"StagingGlueTableName-{table_name}",
                 value=glue_table.ref,
-                description=f"The name of the Staging Glue table for {file_name}",
+                description=f"The name of the Staging Glue table for {table_name}",
             )
 
         # Define the Glue crawler

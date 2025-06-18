@@ -38,6 +38,8 @@ bucket_names = [
     "kate-source-data",
     "kate-staging-data",
     "kate-error-staging-data",
+    "kate-transform-data",
+    "kate-error-transform-data",
 ]
 s3_buckets_stack = S3BucketsStack(
     app,

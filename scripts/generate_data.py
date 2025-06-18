@@ -39,7 +39,7 @@ def generate_transaction_data(customer_ids, num_records):
             'transaction_id': transaction_id,
             'customer_id': customer_id,
             'transaction_type': transaction_type,
-            'amount': amount
+            'amounttt': amount
         })
     
     return data
