@@ -70,7 +70,7 @@ def process_file(spark, input_bucket, output_bucket, file_path, file_name, env_n
 
     input_s3_path = f"s3://{input_bucket}/{env_name}/{file_path}/{file_name}"
     # output_s3_path = f"s3://{output_bucket}/{env_name}/{file_path}/{year}/{month}/{date}/{time}/{file_name.split('.')[0]}/"  # Save output in a folder with year/month/date/time structure
-    output_s3_path = f"s3://{output_bucket}/{env_name}/{file_path}/{file_name.split('.')[0]}/"
+    output_s3_path = f"s3://{output_bucket}/{env_name}/{file_name.split('.')[0]}/"
 
     logger.info(f"Processing file: {file_name}")
     logger.info(f"Reading from: {input_s3_path}")
@@ -134,7 +134,7 @@ def main():
     check_files_exist(s3_client, input_bucket, env_name, file_path, file_names)
 
     # Delete the entire directory in the output bucket before processing files
-    output_directory_path = f"{env_name}/{file_path}/"
+    output_directory_path = f"{env_name}/"
     delete_directory_in_s3(s3_client, output_bucket, output_directory_path)
 
     # Initialize Spark session

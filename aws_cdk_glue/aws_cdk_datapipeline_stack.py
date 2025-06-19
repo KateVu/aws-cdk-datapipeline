@@ -30,6 +30,18 @@ class DataPipelineStack(Stack):
             glue_job_prefix="IngestionJob",
         )
 
+        glue_transformation = GlueContruct(
+            self,
+            "GlueTransformation",
+            env_name=env_name,
+            input_bucket=account_config["transformation"]["input_bucket"],
+            output_bucket=account_config["transformation"]["output_bucket"],
+            error_bucket=account_config["transformation"]["error_bucket"],
+            file_names=account_config["transformation"]["file_names"],
+            script_file_path="../../scripts/glue/transformation.py",  # Path to your Glue script
+            glue_job_prefix="TransformationJob",
+        )
+
         # Create the Step Function
         step_function = StepFunction(
             self,

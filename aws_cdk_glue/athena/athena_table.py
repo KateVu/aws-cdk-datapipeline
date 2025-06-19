@@ -190,7 +190,7 @@ class AthenaTable(Construct):
                 },
                 resource=lakeformation.CfnPermissions.ResourceProperty(
                     table_resource=lakeformation.CfnPermissions.TableResourceProperty(
-                        database_name=database_name, name=file_name
+                        database_name=database_name, name=table_name
                     )
                 ),
                 permissions=["SELECT", "ALTER", "DROP", "INSERT", "DESCRIBE"],

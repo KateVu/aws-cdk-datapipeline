@@ -74,7 +74,7 @@ class GlueContruct(Construct):
                 "--file_names": ",".join(file_names),
                 "--file_path": "test",  # Assuming files are in a 'data' folder for now
             },
-            max_retries=1,
+            max_retries=0,
             timeout=10,
             glue_version="5.0",
         )
