@@ -67,6 +67,7 @@ class DataPipelineStack(Stack):
             ingestion_glue_job_name=glue_ingestion.glue_job.name,
             transformation_glue_job_name=glue_transformation.glue_job.name,
             glue_crawler_staging_name=athena_table.glue_crawler_staging.name,
+            glue_crawler_transformation_name=athena_table.glue_crawler_transformation.name,  # Added transformation crawler name
         )
 
 
