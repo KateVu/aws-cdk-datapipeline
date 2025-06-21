@@ -23,8 +23,8 @@ def process_file(spark, input_bucket, output_bucket, error_bucket, env_name, fil
     :param env_name: Environment name (e.g., dev, prod)
     :param file_name: Name of the file to process
     """
-    input_path = f"s3://{input_bucket}/{env_name}/{file_name}"
-    output_path = f"s3://{output_bucket}/{env_name}/{file_name}"
+    input_path = f"s3://{input_bucket}/{env_name}/staging_{file_name}"
+    output_path = f"s3://{output_bucket}/{env_name}/transformation_{file_name}"
 
     logger.info(f"Processing file: {file_name}")
     logger.info(f"Reading data from: {input_path}")
@@ -73,10 +73,10 @@ def main():
     env_name = args["env_name"]
     input_bucket = args["input_bucket"]
     output_bucket = args["output_bucket"]
-    error_bucket = args["error_bucket"]
+    error_bucket = args["error_bucket"] 
     file_names = args["file_names"].split(",")  # Comma-separated list of file names
 
-    # Initialize Spark session
+    # Initialize Spark fsession
     spark = SparkSession.builder.appName(args["JOB_NAME"]).getOrCreate()
 
     # Loop through files and process them

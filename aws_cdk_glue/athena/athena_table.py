@@ -84,12 +84,12 @@ def create_glue_table(
         table_input={
             "name": table_name,  # Use the passed table name
             "storageDescriptor": {
-                "location": f"s3://{output_bucket}/{env_name}/",  # Path to the data in S3
-                "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",  # Input format for the table
-                "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",  # Output format for the table
+                "location": f"s3://{output_bucket}/{env_name}/{table_name}/",  # Path to the data in S3
+                "inputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",  # Input format for the table
+                "outputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",  # Output format for the table
                 "serdeInfo": {
-                    "serializationLibrary": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",  # SerDe library
-                    "parameters": {"field.delim": ","},  # Field delimiter for CSV files
+                    "serializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",  # SerDe library
+                    "parameters": {'classification': 'Parquet'},
                 },
             },
             "tableType": "EXTERNAL_TABLE",  # Define the table type as external
@@ -105,20 +105,15 @@ class AthenaTable(Construct):
         id: str,
         env_name: str,
         staging_bucket: str,
+        staging_file_names: list,
+        transformation_bucket: str,
+        transformation_file_names: list,
         account_id: str,
         region: str,
-        staging_file_names: list,
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
-        crawler_role_staging: iam.Role = create_glue_role(
-            self,
-            f"GlueCrawlerRoleStaging-{env_name}",
-            env_name,
-            staging_bucket,
-            account_id,
-            region,
-        )
+
         database_name = f"{env_name}_database"
 
         tag_key = "kate"
@@ -148,9 +143,19 @@ class AthenaTable(Construct):
                 )
             ),
         )
+        tag_association.node.add_dependency(glue_database)
+
+        crawler_role_staging: iam.Role = create_glue_role(
+            self,
+            f"GlueCrawlerRoleStaging-{env_name}",
+            env_name,
+            staging_bucket,
+            account_id,
+            region,
+        )
 
         # Grant permissions for database
-        grant_database_access = lakeformation.CfnPermissions(
+        grant_staging_crawler_database_access = lakeformation.CfnPermissions(
             self,
             "LFDatabasePermissions",
             data_lake_principal={
@@ -164,12 +169,11 @@ class AthenaTable(Construct):
             permissions=["ALTER", "DROP", "DESCRIBE", "CREATE_TABLE"],
         )
 
-        tag_association.node.add_dependency(glue_database)
-        grant_database_access.node.add_dependency(glue_database, tag_association)
+        grant_staging_crawler_database_access.node.add_dependency(glue_database, tag_association)
 
         for file_name in staging_file_names:
             # Remove file type from file name
-            table_name = os.path.splitext(file_name)[0]  # Extract the base name without file extension
+            table_name = f"staging_{os.path.splitext(file_name)[0]}"  # Extract the base name without file extension
 
             # Create a Glue table for each file name
             glue_table = create_glue_table(
@@ -212,13 +216,91 @@ class AthenaTable(Construct):
             name=f"{env_name}_staging_crawler",
             role=crawler_role_staging.role_arn,  # Use the created IAM role
             database_name=glue_database.ref,
-            targets={"s3Targets": [{"path": f"s3://{staging_bucket}/{env_name}"}]},
+            targets={"s3Targets": [{"path": f"s3://{staging_bucket}/{env_name}/"}]},
         )
 
         # Output the Glue crawler name
         CfnOutput(
             self,
-            "GlueCrawlerName",
+            "GlueStagingCrawlerName",
             value=glue_crawler_staging.ref,
             description="The name of the Glue crawler for the staging bucket",
+        )
+
+
+        # Transformation Process
+        crawler_role_transformation: iam.Role = create_glue_role(
+            self,
+            f"GlueCrawlerRoleTransformation-{env_name}",
+            env_name,
+            transformation_bucket,
+            account_id,
+            region,
+        )
+
+        grant_transformation_crawler_database_access = lakeformation.CfnPermissions(
+            self,
+            "LFDatabasePermissionsTransformation",
+            data_lake_principal={
+                "dataLakePrincipalIdentifier": crawler_role_transformation.role_arn
+            },
+            resource=lakeformation.CfnPermissions.ResourceProperty(
+                database_resource=lakeformation.CfnPermissions.DatabaseResourceProperty(
+                    catalog_id=account_id, name=database_name
+                ),
+            ),
+            permissions=["ALTER", "DROP", "DESCRIBE", "CREATE_TABLE"],
+        )
+
+        grant_transformation_crawler_database_access.node.add_dependency(glue_database, tag_association)
+
+        for file_name in transformation_file_names:
+            table_name = f"transformation_{os.path.splitext(file_name)[0]}"
+
+            glue_table = create_glue_table(
+                self,
+                f"TransformationGlueTable-{table_name}",
+                table_name=table_name,
+                env_name=env_name,
+                output_bucket=transformation_bucket,
+                account_id=account_id,
+                glue_database=glue_database,
+            )
+
+            grant_table_access = lakeformation.CfnPermissions(
+                self,
+                f"TransformationGlueTableLFTablePermissions-{file_name}",
+                data_lake_principal={
+                    "dataLakePrincipalIdentifier": crawler_role_transformation.role_arn
+                },
+                resource=lakeformation.CfnPermissions.ResourceProperty(
+                    table_resource=lakeformation.CfnPermissions.TableResourceProperty(
+                        database_name=database_name, name=table_name
+                    )
+                ),
+                permissions=["SELECT", "ALTER", "DROP", "INSERT", "DESCRIBE"],
+            )
+            grant_table_access.node.add_dependency(glue_database, tag_association)
+
+            CfnOutput(
+                self,
+                f"TransformationGlueTableName-{table_name}",
+                value=glue_table.ref,
+                description=f"The name of the Transformation Glue table for {table_name}",
+            )
+
+        glue_crawler_transformation = glue.CfnCrawler(
+            self,
+            "GlueCrawlerTransformation",
+            name=f"{env_name}_transformation_crawler",
+            role=crawler_role_transformation.role_arn,
+            database_name=glue_database.ref,
+            targets={"s3Targets": [{"path": f"s3://{transformation_bucket}/{env_name}/"}]},
+        )
+
+        CfnOutput(
+            self,
+            "GlueTransformationCrawlerName",
+            value=glue_crawler_transformation.ref,
+            description="The name of the Glue crawler for the transformation bucket",
         )

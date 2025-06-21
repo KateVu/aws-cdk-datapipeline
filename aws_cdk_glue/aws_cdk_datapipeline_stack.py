@@ -59,6 +59,8 @@ class DataPipelineStack(Stack):
             account_id=account_config["account_id"],
             region=self.region,
             staging_file_names=account_config["ingestion"]["file_names"],
+            transformation_bucket=account_config["transformation"]["output_bucket"],
+            transformation_file_names=account_config["transformation"]["file_names"],
         )
 
 
