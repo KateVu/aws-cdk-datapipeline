@@ -1,9 +1,9 @@
 import os
 from aws_cdk import aws_glue as glue
 from aws_cdk import aws_iam as iam
-from aws_cdk import CfnOutput
 from constructs import Construct
 import aws_cdk.aws_lakeformation as lakeformation
+from aws_cdk_glue.utils.utils import add_output  # Import the add_output function
 
 
 def create_glue_role(
@@ -37,7 +37,7 @@ def create_glue_role(
             ],
             resources=[
                 f"arn:aws:s3:::{output_bucket}",
-                f"arn:aws:s3:::{output_bucket}/{env_name}*",
+                f"arn:aws:s3:::{output_bucket}/{env_name}/*",
             ],
         )
     )
@@ -113,7 +113,6 @@ class AthenaTable(Construct):
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
-
         database_name = f"{env_name}_database"
 
         tag_key = "kate"
@@ -137,7 +136,6 @@ class AthenaTable(Construct):
             "TagAssociation",
             lf_tags=[lf_tag_pair_property],
             resource=lakeformation.CfnTagAssociation.ResourceProperty(
-                # catalog=account_id,
                 database=lakeformation.CfnTagAssociation.DatabaseResourceProperty(
                     catalog_id=account_id, name=database_name
                 )
@@ -201,12 +199,11 @@ class AthenaTable(Construct):
             )
             grant_table_access.node.add_dependency(glue_database, tag_association)
 
-            # Output the Glue table name
-            CfnOutput(
+            # Output the Glue table name using add_output
+            add_output(
                 self,
                 f"StagingGlueTableName-{table_name}",
-                value=glue_table.ref,
-                description=f"The name of the Staging Glue table for {table_name}",
+                glue_table.ref,
             )
 
         # Define the Glue crawler
@@ -219,14 +216,12 @@ class AthenaTable(Construct):
             targets={"s3Targets": [{"path": f"s3://{staging_bucket}/{env_name}/"}]},
         )
 
-        # Output the Glue crawler name
-        CfnOutput(
+        # Output the Glue crawler name using add_output
+        add_output(
             self,
             "GlueStagingCrawlerName",
-            value=glue_crawler_staging.ref,
-            description="The name of the Glue crawler for the staging bucket",
+            glue_crawler_staging.ref,
         )
-
 
         # Transformation Process
         crawler_role_transformation: iam.Role = create_glue_role(
@@ -282,11 +277,11 @@ class AthenaTable(Construct):
             )
             grant_table_access.node.add_dependency(glue_database, tag_association)
 
-            CfnOutput(
+            # Output the Glue table name using add_output
+            add_output(
                 self,
                 f"TransformationGlueTableName-{table_name}",
-                value=glue_table.ref,
-                description=f"The name of the Transformation Glue table for {table_name}",
+                glue_table.ref,
             )
 
         glue_crawler_transformation = glue.CfnCrawler(
@@ -298,9 +293,12 @@ class AthenaTable(Construct):
             targets={"s3Targets": [{"path": f"s3://{transformation_bucket}/{env_name}/"}]},
         )
 
-        CfnOutput(
+        # Output the Glue crawler name using add_output
+        add_output(
             self,
             "GlueTransformationCrawlerName",
-            value=glue_crawler_transformation.ref,
-            description="The name of the Glue crawler for the transformation bucket",
+            glue_crawler_transformation.ref,
         )
+
+        self.glue_crawler_staging = glue_crawler_staging
+        self.glue_crawler_transformation = glue_crawler_transformation

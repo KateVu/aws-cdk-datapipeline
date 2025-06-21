@@ -1,8 +1,10 @@
 from aws_cdk import Stack
+from aws_cdk import aws_sns as sns
 from constructs import Construct
 from aws_cdk_glue.glue.glue_contruct import GlueContruct
 from aws_cdk_glue.step_function.step_function import StepFunction
 from aws_cdk_glue.athena.athena_table import AthenaTable
+from aws_cdk_glue.utils.utils import add_output  # Import the utility method
 
 
 class DataPipelineStack(Stack):
@@ -42,16 +44,8 @@ class DataPipelineStack(Stack):
             glue_job_prefix="TransformationJob",
         )
 
-        # Create the Step Function
-        step_function = StepFunction(
-            self,
-            "DataPipelineStepFunction",
-            env_name=env_name,
-            ingestion_glue_job_name=glue_ingestion.glue_job.name,
-        )
-
         # Create the Athena table
-        AthenaTable(
+        athena_table = AthenaTable(
             self,
             "AthenaTable",
             env_name=env_name,
@@ -61,6 +55,35 @@ class DataPipelineStack(Stack):
             staging_file_names=account_config["ingestion"]["file_names"],
             transformation_bucket=account_config["transformation"]["output_bucket"],
             transformation_file_names=account_config["transformation"]["file_names"],
+        )        
+
+        # Create the Step Function
+        step_function = StepFunction(
+            self,
+            "StepFunction",
+            region=self.region,
+            account=account_config["account_id"],
+            env_name=env_name,
+            ingestion_glue_job_name=glue_ingestion.glue_job.name,
+            transformation_glue_job_name=glue_transformation.glue_job.name,
+            glue_crawler_staging_name=athena_table.glue_crawler_staging.name,
         )
+
+
+
+        # Create an SNS topic
+        sns_topic = sns.Topic(
+            self,
+            "DataPipelineSNSTopic",
+            display_name=f"{env_name}-DataPipelineTopic",
+            topic_name=f"{env_name}-DataPipelineTopic",
+        )
+
+        # Output the SNS topic ARN
+        add_output(self, "SNSTopicARN", sns_topic.topic_arn)
+
+        # Output Glue job names
+        add_output(self, "GlueIngestionJobName", glue_ingestion.glue_job.name)
+        add_output(self, "GlueTransformationJobName", glue_transformation.glue_job.name)
 
 

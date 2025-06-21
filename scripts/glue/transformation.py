@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 from pyspark.sql import SparkSession
 from awsglue.utils import getResolvedOptions
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, lit
 
 # Configure logging
 logging.basicConfig(
@@ -30,8 +30,14 @@ def process_file(spark, input_bucket, output_bucket, error_bucket, env_name, fil
     logger.info(f"Reading data from: {input_path}")
 
     try:
+        # Record transformation start time
+        transformation_start_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
         # Read Parquet file from S3
         df = spark.read.parquet(input_path)
+
+        # Add transformation start time to the DataFrame
+        df = df.withColumn("transformation_start_time", lit(transformation_start_time))
 
         if file_name == "customer_data":
             # Copy customer_data as is
@@ -42,6 +48,18 @@ def process_file(spark, input_bucket, output_bucket, error_bucket, env_name, fil
             df = df.withColumnRenamed("amounttt", "amount")
         else:
             logger.warning(f"Unknown file type: {file_name}. Skipping transformation.")
+
+        # Record transformation finish time
+        transformation_finish_time = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Add transformation finish time to the DataFrame
+        df = df.withColumn("transformation_finish_time", lit(transformation_finish_time))
+
+        # Remove ingestion-related columns if they exist
+        columns_to_remove = ["ingestion_start_time", "ingestion_finish_time"]
+        for column in columns_to_remove:
+            if column in df.columns:
+                df = df.drop(column)
 
         # Write the processed data to S3 in Parquet format
         logger.info(f"Writing processed data to: {output_path}")
@@ -73,10 +91,10 @@ def main():
     env_name = args["env_name"]
     input_bucket = args["input_bucket"]
     output_bucket = args["output_bucket"]
-    error_bucket = args["error_bucket"] 
+    error_bucket = args["error_bucket"]
     file_names = args["file_names"].split(",")  # Comma-separated list of file names
 
-    # Initialize Spark fsession
+    # Initialize Spark session
     spark = SparkSession.builder.appName(args["JOB_NAME"]).getOrCreate()
 
     # Loop through files and process them
