@@ -54,12 +54,30 @@ def delete_directory_in_s3(s3_client, bucket, directory_path):
         sys.exit(1)
 
 
-def process_file(spark, s3_client, input_bucket, output_bucket, error_bucket, file_path, file_name, env_name, current_time):
+def notify_sns(sns_client, topic_arn, message):
+    """
+    Send a notification to an SNS topic.
+
+    :param sns_client: Boto3 SNS client
+    :param topic_arn: ARN of the SNS topic
+    :param message: Message to send
+    """
+    try:
+        sns_client.publish(TopicArn=topic_arn, Message=message)
+        logger.info(f"Notification sent to SNS topic: {topic_arn}")
+    except ClientError as e:
+        logger.error(f"Failed to send notification to SNS topic: {e}")
+        sys.exit(1)
+
+
+def process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, output_bucket, error_bucket, file_path, file_name, env_name, current_time):
     """
     Process a single file: read from S3, transform, and write to S3.
 
     :param spark: SparkSession object
     :param s3_client: Boto3 S3 client
+    :param sns_client: Boto3 SNS client
+    :param sns_topic_arn: ARN of the SNS topic
     :param input_bucket: Name of the input S3 bucket
     :param output_bucket: Name of the output S3 bucket
     :param error_bucket: Name of the error S3 bucket
@@ -111,6 +129,10 @@ def process_file(spark, s3_client, input_bucket, output_bucket, error_bucket, fi
         except ClientError as copy_error:
             logger.error(f"Failed to copy file {file_name} to error bucket: {copy_error}")
 
+        # Notify SNS about the error
+        error_message = f"Error processing file {file_name} in environment {env_name}. Original file copied to error bucket."
+        notify_sns(sns_client, sns_topic_arn, error_message)
+
 
 def main():
     # Get arguments passed to the Glue job
@@ -123,6 +145,7 @@ def main():
             "error_bucket",
             "file_path",
             "file_names",
+            "sns_topic_arn",  # Added SNS topic ARN argument
             "JOB_NAME",
         ],
     )
@@ -134,9 +157,11 @@ def main():
     file_path = args["file_path"]
     file_names = args["file_names"].split(",")  # Expecting a comma-separated list of file names
     env_name = args["env_name"]
+    sns_topic_arn = args["sns_topic_arn"]  # Extract SNS topic ARN
 
-    # Initialize S3 client
+    # Initialize S3 and SNS clients
     s3_client = boto3.client("s3")
+    sns_client = boto3.client("sns")
 
     # Check if files exist in the input bucket
     check_files_exist(s3_client, input_bucket, env_name, file_path, file_names)
@@ -155,7 +180,7 @@ def main():
     # Process each file
     current_time = datetime.utcnow()
     for file_name in file_names:
-        process_file(spark, s3_client, input_bucket, output_bucket, error_bucket, file_path, file_name, env_name, current_time)
+        process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, output_bucket, error_bucket, file_path, file_name, env_name, current_time)
 
     # Stop the Spark session
     spark.stop()

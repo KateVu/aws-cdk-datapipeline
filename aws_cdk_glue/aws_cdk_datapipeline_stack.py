@@ -18,6 +18,13 @@ class DataPipelineStack(Stack):
         **kwargs
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+        # Create an SNS topic
+        sns_topic = sns.Topic(
+            self,
+            "DataPipelineSNSTopic",
+            display_name=f"{env_name}-DataPipelineTopic",
+            topic_name=f"{env_name}-DataPipelineTopic",
+        )
 
         # Create the Glue ingestion construct
         glue_ingestion = GlueContruct(
@@ -30,6 +37,7 @@ class DataPipelineStack(Stack):
             file_names=account_config["ingestion"]["file_names"],
             script_file_path="../../scripts/glue/ingestion.py",  # Path to your Glue script
             glue_job_prefix="IngestionJob",
+            sns_topic_arn=sns_topic.topic_arn,  # Pass the SNS topic ARN
         )
 
         glue_transformation = GlueContruct(
@@ -42,6 +50,7 @@ class DataPipelineStack(Stack):
             file_names=account_config["transformation"]["file_names"],
             script_file_path="../../scripts/glue/transformation.py",  # Path to your Glue script
             glue_job_prefix="TransformationJob",
+            sns_topic_arn=sns_topic.topic_arn,  # Pass the SNS topic ARN
         )
 
         # Create the Athena table
@@ -72,13 +81,6 @@ class DataPipelineStack(Stack):
 
 
 
-        # Create an SNS topic
-        sns_topic = sns.Topic(
-            self,
-            "DataPipelineSNSTopic",
-            display_name=f"{env_name}-DataPipelineTopic",
-            topic_name=f"{env_name}-DataPipelineTopic",
-        )
 
         # Output the SNS topic ARN
         add_output(self, "SNSTopicARN", sns_topic.topic_arn)

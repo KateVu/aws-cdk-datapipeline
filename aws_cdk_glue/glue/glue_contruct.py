@@ -9,7 +9,7 @@ import os.path as path
 
 class GlueContruct(Construct):
 
-    def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, error_bucket: str, file_names: list, script_file_path: str, glue_job_prefix: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, id: str, env_name: str, input_bucket: str, output_bucket: str, error_bucket: str, file_names: list, script_file_path: str, glue_job_prefix: str, sns_topic_arn: str, **kwargs) -> None:
         super().__init__(scope, id, **kwargs)
         # Define an IAM role for the Glue job
         glue_role = iam.Role(
@@ -46,12 +46,20 @@ class GlueContruct(Construct):
             )
         )
 
+        # Add permissions to publish messages to the SNS topic
+        glue_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["sns:Publish"],
+                resources=[sns_topic_arn],
+            )
+        )
+
         # Upload the Glue script to an S3 bucket using an S3 asset
         glue_script_asset = s3_assets.Asset(
             self,
             "GlueScriptAsset",
             path=path.join(
-                path.dirname(__file__),script_file_path
+                path.dirname(__file__), script_file_path
             ),  # Replace with the local path to your script
         )
 
@@ -75,6 +83,7 @@ class GlueContruct(Construct):
                 "--error_bucket": error_bucket,
                 "--file_names": ",".join(file_names),
                 "--file_path": "test",  # Assuming files are in a 'data' folder for now
+                "--sns_topic_arn": sns_topic_arn,
             },
             max_retries=0,
             timeout=10,
