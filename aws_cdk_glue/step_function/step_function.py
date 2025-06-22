@@ -14,7 +14,8 @@ class StepFunction(Construct):
         ingestion_glue_job_name: str,
         transformation_glue_job_name: str,
         glue_crawler_staging_name: str,
-        glue_crawler_transformation_name: str,  # Added transformation crawler name
+        glue_crawler_transformation_name: str,
+        sns_topic_arn: str,  # Added SNS topic ARN
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
@@ -53,13 +54,26 @@ class StepFunction(Construct):
             iam_resources=[f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_transformation_name}"],
         )
 
+        # Define the SNS publish task
+        sns_publish_task = tasks.CallAwsService(
+            self,
+            "SNSPublishTask",
+            service="sns",
+            action="publish",
+            parameters={
+                "TopicArn": sns_topic_arn,
+                "Message": f"Step Function {env_name}-DataPipelineStateMachine has completed successfully.",
+            },
+            iam_resources=[f"arn:aws:sns:{region}:{account}:*"],
+        )
+
         # Run transformation Glue job and Glue crawler staging in parallel
         parallel_tasks = sfn.Parallel(self, "ParallelTasks")
         parallel_tasks.branch(transformation_glue_task.next(glue_crawler_transformation_task))
         parallel_tasks.branch(glue_crawler_staging_task)
 
-        # Chain the ingestion Glue job, parallel tasks, and transformation crawler
-        definition = ingestion_glue_task.next(parallel_tasks)
+        # Chain the ingestion Glue job, parallel tasks, transformation crawler, and SNS publish task
+        definition = ingestion_glue_task.next(parallel_tasks).next(sns_publish_task)
 
         # Create the Step Function
         self.state_machine = sfn.StateMachine(

@@ -77,6 +77,7 @@ class DataPipelineStack(Stack):
             transformation_glue_job_name=glue_transformation.glue_job.name,
             glue_crawler_staging_name=athena_table.glue_crawler_staging.name,
             glue_crawler_transformation_name=athena_table.glue_crawler_transformation.name,  # Added transformation crawler name
+            sns_topic_arn=sns_topic.topic_arn,  # Pass the SNS topic ARN
         )
 
 
