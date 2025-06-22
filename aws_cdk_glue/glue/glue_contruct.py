@@ -40,6 +40,8 @@ class GlueContruct(Construct):
                 resources=[
                     f"arn:aws:s3:::{output_bucket}/{env_name}/*",
                     f"arn:aws:s3:::{output_bucket}/{env_name}",
+                    f"arn:aws:s3:::{error_bucket}/{env_name}/*",
+                    f"arn:aws:s3:::{error_bucket}/{env_name}",
                 ],
             )
         )
