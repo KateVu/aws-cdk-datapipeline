@@ -30,6 +30,8 @@ class StepFunction(Construct):
             self,
             "IngestionGlueJob",
             glue_job_name=ingestion_glue_job_name,
+        ).add_catch(
+            sfn.Fail(self, "IngestionFailed", error="IngestionError", cause="Ingestion Glue Job Failed")
         )
 
         # Define the transformation Glue job task
@@ -37,6 +39,8 @@ class StepFunction(Construct):
             self,
             "TransformationGlueJob",
             glue_job_name=transformation_glue_job_name,
+        ).add_catch(
+            sfn.Fail(self, "TransformationFailed", error="TransformationError", cause="Transformation Glue Job Failed")
         )
 
         # Define the Glue crawler staging task
@@ -47,6 +51,8 @@ class StepFunction(Construct):
             action="startCrawler",
             parameters={"Name": glue_crawler_staging_name},
             iam_resources=[f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_staging_name}"],
+        ).add_catch(
+            sfn.Fail(self, "StagingCrawlerFailed", error="StagingCrawlerError", cause="Staging Glue Crawler Failed")
         )
 
         # Define the Glue crawler transformation task
@@ -57,6 +63,8 @@ class StepFunction(Construct):
             action="startCrawler",
             parameters={"Name": glue_crawler_transformation_name},
             iam_resources=[f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_transformation_name}"],
+        ).add_catch(
+            sfn.Fail(self, "TransformationCrawlerFailed", error="TransformationCrawlerError", cause="Transformation Glue Crawler Failed")
         )
 
         # Define the SNS publish task
@@ -70,6 +78,8 @@ class StepFunction(Construct):
                 "Message": f"Step Function {env_name}-DataPipelineStateMachine has completed successfully.",
             },
             iam_resources=[f"arn:aws:sns:{region}:{account}:*"],
+        ).add_catch(
+            sfn.Fail(self, "SNSPublishFailed", error="SNSPublishError", cause="SNS Publish Task Failed")
         )
 
         # Run transformation Glue job and Glue crawler staging in parallel
