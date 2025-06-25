@@ -30,8 +30,18 @@ class StepFunction(Construct):
             self,
             "IngestionGlueJob",
             glue_job_name=ingestion_glue_job_name,
+            arguments=sfn.TaskInput.from_object(
+                {
+                    "--file_path": sfn.JsonPath.string_at("$.file_path"),  # Pass file_path from input
+                }
+            ),
         ).add_catch(
-            sfn.Fail(self, "IngestionFailed", error="IngestionError", cause="Ingestion Glue Job Failed")
+            sfn.Fail(
+                self,
+                "IngestionFailed",
+                error="IngestionError",
+                cause="Ingestion Glue Job Failed",
+            )
         )
 
         # Define the transformation Glue job task
@@ -40,7 +50,12 @@ class StepFunction(Construct):
             "TransformationGlueJob",
             glue_job_name=transformation_glue_job_name,
         ).add_catch(
-            sfn.Fail(self, "TransformationFailed", error="TransformationError", cause="Transformation Glue Job Failed")
+            sfn.Fail(
+                self,
+                "TransformationFailed",
+                error="TransformationError",
+                cause="Transformation Glue Job Failed",
+            )
         )
 
         # Define the Glue crawler staging task
@@ -50,9 +65,16 @@ class StepFunction(Construct):
             service="glue",
             action="startCrawler",
             parameters={"Name": glue_crawler_staging_name},
-            iam_resources=[f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_staging_name}"],
+            iam_resources=[
+                f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_staging_name}"
+            ],
         ).add_catch(
-            sfn.Fail(self, "StagingCrawlerFailed", error="StagingCrawlerError", cause="Staging Glue Crawler Failed")
+            sfn.Fail(
+                self,
+                "StagingCrawlerFailed",
+                error="StagingCrawlerError",
+                cause="Staging Glue Crawler Failed",
+            )
         )
 
         # Define the Glue crawler transformation task
@@ -62,9 +84,16 @@ class StepFunction(Construct):
             service="glue",
             action="startCrawler",
             parameters={"Name": glue_crawler_transformation_name},
-            iam_resources=[f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_transformation_name}"],
+            iam_resources=[
+                f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_transformation_name}"
+            ],
         ).add_catch(
-            sfn.Fail(self, "TransformationCrawlerFailed", error="TransformationCrawlerError", cause="Transformation Glue Crawler Failed")
+            sfn.Fail(
+                self,
+                "TransformationCrawlerFailed",
+                error="TransformationCrawlerError",
+                cause="Transformation Glue Crawler Failed",
+            )
         )
 
         # Define the SNS publish task
@@ -79,12 +108,19 @@ class StepFunction(Construct):
             },
             iam_resources=[f"arn:aws:sns:{region}:{account}:*"],
         ).add_catch(
-            sfn.Fail(self, "SNSPublishFailed", error="SNSPublishError", cause="SNS Publish Task Failed")
+            sfn.Fail(
+                self,
+                "SNSPublishFailed",
+                error="SNSPublishError",
+                cause="SNS Publish Task Failed",
+            )
         )
 
         # Run transformation Glue job and Glue crawler staging in parallel
         parallel_tasks = sfn.Parallel(self, "ParallelTasks")
-        parallel_tasks.branch(transformation_glue_task.next(glue_crawler_transformation_task))
+        parallel_tasks.branch(
+            transformation_glue_task.next(glue_crawler_transformation_task)
+        )
         parallel_tasks.branch(glue_crawler_staging_task)
 
         # Chain the ingestion Glue job, parallel tasks, transformation crawler, and SNS publish task
@@ -116,7 +152,9 @@ class StepFunction(Construct):
                 "REGION": region,
                 "ACCOUNT": account,
                 "BUCKET_NAME": input_bucket.bucket_name,
-                "FILE_NAMES": ",".join(file_names),  # Convert list to comma-separated string
+                "FILE_NAMES": ",".join(
+                    file_names
+                ),  # Convert list to comma-separated string
             },
         )
 
@@ -128,5 +166,7 @@ class StepFunction(Construct):
         input_bucket.add_event_notification(
             s3.EventType.OBJECT_CREATED,
             s3_notifications.LambdaDestination(trigger_lambda),
-            s3.NotificationKeyFilter(prefix=f"{env_name}/"),  # Trigger only for files in env_name folder
+            s3.NotificationKeyFilter(
+                prefix=f"{env_name}/"
+            ),  # Trigger only for files in env_name folder
         )
