@@ -24,11 +24,11 @@ def check_files_exist(s3_client, bucket, env_name, file_path, file_names):
     """
     for file_name in file_names:
         try:
-            s3_client.head_object(Bucket=bucket, Key=f"{env_name}/{file_path}/{file_name}")
-            logger.info(f"File {env_name}/{file_path}/{file_name} exists in bucket {bucket}.")
+            s3_client.head_object(Bucket=bucket, Key=f"{file_path}/{file_name}")
+            logger.info(f"File {file_path}/{file_name} exists in bucket {bucket}.")
         except s3_client.exceptions.ClientError as e:
             logger.error(
-                f"File {env_name}/{file_path}/{file_name} does not exist in bucket {bucket}: {e} Exiting."
+                f"File {file_path}/{file_name} does not exist in bucket {bucket}: {e} Exiting."
             )
             sys.exit(1)
 
@@ -84,7 +84,7 @@ def process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, outp
     :param file_name: Name of the file to process
     :param env_name: Environment name (e.g., dev, prod)
     """
-    input_s3_path = f"s3://{input_bucket}/{env_name}/{file_path}/{file_name}"
+    input_s3_path = f"s3://{input_bucket}/{file_path}/{file_name}"
     output_s3_path = f"s3://{output_bucket}/{env_name}/staging_{file_name.split('.')[0]}/"
     error_s3_path = f"s3://{error_bucket}/{env_name}/error_{file_name}"
 
@@ -122,7 +122,7 @@ def process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, outp
         try:
             s3_client.copy_object(
                 Bucket=error_bucket,
-                CopySource={"Bucket": input_bucket, "Key": f"{env_name}/{file_path}/{file_name}"},
+                CopySource={"Bucket": input_bucket, "Key": f"{file_path}/{file_name}"},
                 Key=f"{env_name}/error_{file_name}",
             )
             logger.info(f"Successfully copied file {file_name} to error bucket.")

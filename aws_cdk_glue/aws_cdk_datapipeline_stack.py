@@ -78,6 +78,8 @@ class DataPipelineStack(Stack):
             glue_crawler_staging_name=athena_table.glue_crawler_staging.name,
             glue_crawler_transformation_name=athena_table.glue_crawler_transformation.name,  # Added transformation crawler name
             sns_topic_arn=sns_topic.topic_arn,  # Pass the SNS topic ARN
+            input_bucket_name=account_config["ingestion"]["input_bucket"],  # Use the existing bucket name
+            file_names=account_config["ingestion"]["file_names"],  # Pass the file names for ingestion
         )
 
 

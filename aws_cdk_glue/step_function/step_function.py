@@ -1,5 +1,8 @@
 from aws_cdk import aws_stepfunctions as sfn
 from aws_cdk import aws_stepfunctions_tasks as tasks
+from aws_cdk import aws_lambda as _lambda
+from aws_cdk import aws_s3 as s3
+from aws_cdk import aws_s3_notifications as s3_notifications
 from constructs import Construct
 
 
@@ -15,7 +18,9 @@ class StepFunction(Construct):
         transformation_glue_job_name: str,
         glue_crawler_staging_name: str,
         glue_crawler_transformation_name: str,
-        sns_topic_arn: str,  # Added SNS topic ARN
+        sns_topic_arn: str,
+        input_bucket_name: str,  # Use the existing bucket name
+        file_names: list,
         **kwargs,
     ) -> None:
         super().__init__(scope, id, **kwargs)
@@ -80,4 +85,38 @@ class StepFunction(Construct):
             self,
             f"{env_name}-DataPipelineStateMachine",
             definition=definition,
+        )
+
+        # Reference the existing S3 bucket
+        input_bucket = s3.Bucket.from_bucket_name(
+            self,
+            "ExistingInputBucket",
+            bucket_name=input_bucket_name,
+        )
+
+        # Create a Lambda function to trigger the Step Function
+        trigger_lambda = _lambda.Function(
+            self,
+            "TriggerLambda",
+            runtime=_lambda.Runtime.PYTHON_3_9,
+            handler="trigger.handler",
+            code=_lambda.Code.from_asset("./scripts/lambda/"),  # Path to Lambda code
+            environment={
+                "STEP_FUNCTION_ARN": self.state_machine.state_machine_arn,
+                "REGION": region,
+                "ACCOUNT": account,
+                "BUCKET_NAME": input_bucket.bucket_name,
+                "FILE_NAMES": ",".join(file_names),  # Convert list to comma-separated string
+            },
+        )
+
+        # Grant permissions to the Lambda function
+        input_bucket.grant_read(trigger_lambda)
+        self.state_machine.grant_start_execution(trigger_lambda)
+
+        # Add S3 event notification to invoke the Lambda function only for files in the env_name folder
+        input_bucket.add_event_notification(
+            s3.EventType.OBJECT_CREATED,
+            s3_notifications.LambdaDestination(trigger_lambda),
+            s3.NotificationKeyFilter(prefix=f"{env_name}/"),  # Trigger only for files in env_name folder
         )
