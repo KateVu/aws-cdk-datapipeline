@@ -1,8 +1,11 @@
-from aws_cdk import aws_stepfunctions as sfn
-from aws_cdk import aws_stepfunctions_tasks as tasks
-from aws_cdk import aws_lambda as _lambda
-from aws_cdk import aws_s3 as s3
-from aws_cdk import aws_s3_notifications as s3_notifications
+from aws_cdk import (
+    aws_stepfunctions as sfn,
+    aws_stepfunctions_tasks as tasks,
+    aws_lambda as _lambda,
+    aws_s3 as s3,
+    aws_s3_notifications as s3_notifications,
+    Duration,  # Import Duration directly from aws_cdk
+)
 from constructs import Construct
 
 
@@ -30,18 +33,16 @@ class StepFunction(Construct):
             self,
             "IngestionGlueJob",
             glue_job_name=ingestion_glue_job_name,
+            integration_pattern=sfn.IntegrationPattern.RUN_JOB,
             arguments=sfn.TaskInput.from_object(
                 {
                     "--file_path": sfn.JsonPath.string_at("$.file_path"),  # Pass file_path from input
                 }
             ),
-        ).add_catch(
-            sfn.Fail(
-                self,
-                "IngestionFailed",
-                error="IngestionError",
-                cause="Ingestion Glue Job Failed",
-            )
+        ).add_retry(
+            interval=Duration.seconds(30),  # Retry after 30 seconds
+            max_attempts=3,  # Retry up to 3 times
+            backoff_rate=2.0,  # Exponential backoff
         )
 
         # Define the transformation Glue job task
@@ -49,13 +50,10 @@ class StepFunction(Construct):
             self,
             "TransformationGlueJob",
             glue_job_name=transformation_glue_job_name,
-        ).add_catch(
-            sfn.Fail(
-                self,
-                "TransformationFailed",
-                error="TransformationError",
-                cause="Transformation Glue Job Failed",
-            )
+        ).add_retry(
+            interval=Duration.seconds(30),
+            max_attempts=3,
+            backoff_rate=2.0,
         )
 
         # Define the Glue crawler staging task
@@ -68,13 +66,10 @@ class StepFunction(Construct):
             iam_resources=[
                 f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_staging_name}"
             ],
-        ).add_catch(
-            sfn.Fail(
-                self,
-                "StagingCrawlerFailed",
-                error="StagingCrawlerError",
-                cause="Staging Glue Crawler Failed",
-            )
+        ).add_retry(
+            interval=Duration.seconds(30),
+            max_attempts=3,
+            backoff_rate=2.0,
         )
 
         # Define the Glue crawler transformation task
@@ -87,13 +82,10 @@ class StepFunction(Construct):
             iam_resources=[
                 f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_transformation_name}"
             ],
-        ).add_catch(
-            sfn.Fail(
-                self,
-                "TransformationCrawlerFailed",
-                error="TransformationCrawlerError",
-                cause="Transformation Glue Crawler Failed",
-            )
+        ).add_retry(
+            interval=Duration.seconds(30),
+            max_attempts=3,
+            backoff_rate=2.0,
         )
 
         # Define the SNS publish task
@@ -107,13 +99,10 @@ class StepFunction(Construct):
                 "Message": f"Step Function {env_name}-DataPipelineStateMachine has completed successfully.",
             },
             iam_resources=[f"arn:aws:sns:{region}:{account}:*"],
-        ).add_catch(
-            sfn.Fail(
-                self,
-                "SNSPublishFailed",
-                error="SNSPublishError",
-                cause="SNS Publish Task Failed",
-            )
+        ).add_retry(
+            interval=Duration.seconds(30),
+            max_attempts=3,
+            backoff_rate=2.0,
         )
 
         # Run transformation Glue job and Glue crawler staging in parallel

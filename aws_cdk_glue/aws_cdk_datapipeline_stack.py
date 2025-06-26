@@ -15,7 +15,7 @@ class DataPipelineStack(Stack):
         construct_id: str,
         env_name: str,
         account_config: dict,
-        **kwargs
+        **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
         # Create an SNS topic
@@ -64,7 +64,7 @@ class DataPipelineStack(Stack):
             staging_file_names=account_config["ingestion"]["file_names"],
             transformation_bucket=account_config["transformation"]["output_bucket"],
             transformation_file_names=account_config["transformation"]["file_names"],
-        )        
+        )
 
         # Create the Step Function
         step_function = StepFunction(
@@ -78,12 +78,13 @@ class DataPipelineStack(Stack):
             glue_crawler_staging_name=athena_table.glue_crawler_staging.name,
             glue_crawler_transformation_name=athena_table.glue_crawler_transformation.name,  # Added transformation crawler name
             sns_topic_arn=sns_topic.topic_arn,  # Pass the SNS topic ARN
-            input_bucket_name=account_config["ingestion"]["input_bucket"],  # Use the existing bucket name
-            file_names=account_config["ingestion"]["file_names"],  # Pass the file names for ingestion
+            input_bucket_name=account_config["ingestion"][
+                "input_bucket"
+            ],  # Use the existing bucket name
+            file_names=account_config["ingestion"][
+                "file_names"
+            ],  # Pass the file names for ingestion
         )
-
-
-
 
         # Output the SNS topic ARN
         add_output(self, "SNSTopicARN", sns_topic.topic_arn)
@@ -91,5 +92,3 @@ class DataPipelineStack(Stack):
         # Output Glue job names
         add_output(self, "GlueIngestionJobName", glue_ingestion.glue_job.name)
         add_output(self, "GlueTransformationJobName", glue_transformation.glue_job.name)
-
-

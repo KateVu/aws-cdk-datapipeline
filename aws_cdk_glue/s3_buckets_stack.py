@@ -4,7 +4,9 @@ from constructs import Construct
 
 
 class S3BucketsStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, bucket_names: list, **kwargs) -> None:
+    def __init__(
+        self, scope: Construct, construct_id: str, bucket_names: list, **kwargs
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
         # Create S3 buckets from the provided list of bucket names

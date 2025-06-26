@@ -29,7 +29,16 @@ def notify_sns(sns_client, topic_arn, message):
         logger.error(f"Failed to send notification to SNS topic: {e}")
 
 
-def process_file(spark, input_bucket, output_bucket, error_bucket, env_name, file_name, sns_client, sns_topic_arn):
+def process_file(
+    spark,
+    input_bucket,
+    output_bucket,
+    error_bucket,
+    env_name,
+    file_name,
+    sns_client,
+    sns_topic_arn,
+):
     """
     Process individual files based on their type.
 
@@ -75,12 +84,17 @@ def process_file(spark, input_bucket, output_bucket, error_bucket, env_name, fil
             s3_client = boto3.client("s3")
             s3_client.copy_object(
                 Bucket=error_bucket,
-                CopySource={"Bucket": input_bucket, "Key": f"{env_name}/staging_{file_name}"},
+                CopySource={
+                    "Bucket": input_bucket,
+                    "Key": f"{env_name}/staging_{file_name}",
+                },
                 Key=f"{env_name}/{file_name}_error.log",
             )
             logger.info(f"Successfully copied file {file_name} to error bucket.")
         except ClientError as copy_error:
-            logger.error(f"Failed to copy file {file_name} to error bucket: {copy_error}")
+            logger.error(
+                f"Failed to copy file {file_name} to error bucket: {copy_error}"
+            )
 
         # Notify SNS about the error
         error_message = f"Error processing file {file_name} in environment {env_name}. Original file copied to error bucket."
@@ -118,7 +132,16 @@ def main():
 
     # Loop through files and process them
     for file_name in file_names:
-        process_file(spark, input_bucket, output_bucket, error_bucket, env_name, file_name, sns_client, sns_topic_arn)
+        process_file(
+            spark,
+            input_bucket,
+            output_bucket,
+            error_bucket,
+            env_name,
+            file_name,
+            sns_client,
+            sns_topic_arn,
+        )
 
     # Stop the Spark session
     spark.stop()

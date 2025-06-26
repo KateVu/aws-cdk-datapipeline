@@ -70,7 +70,19 @@ def notify_sns(sns_client, topic_arn, message):
         sys.exit(1)
 
 
-def process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, output_bucket, error_bucket, file_path, file_name, env_name, current_time):
+def process_file(
+    spark,
+    s3_client,
+    sns_client,
+    sns_topic_arn,
+    input_bucket,
+    output_bucket,
+    error_bucket,
+    file_path,
+    file_name,
+    env_name,
+    current_time,
+):
     """
     Process a single file: read from S3, transform, and write to S3.
 
@@ -85,7 +97,9 @@ def process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, outp
     :param env_name: Environment name (e.g., dev, prod)
     """
     input_s3_path = f"s3://{input_bucket}/{file_path}/{file_name}"
-    output_s3_path = f"s3://{output_bucket}/{env_name}/staging_{file_name.split('.')[0]}/"
+    output_s3_path = (
+        f"s3://{output_bucket}/{env_name}/staging_{file_name.split('.')[0]}/"
+    )
     error_s3_path = f"s3://{error_bucket}/{env_name}/error_{file_name}"
 
     logger.info(f"Processing file: {file_name}")
@@ -99,7 +113,9 @@ def process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, outp
         df = spark.read.csv(input_s3_path, header=True, inferSchema=True)
         logger.info(f"Finish reading file from s3")
         if not df.columns:
-            raise RuntimeError("The DataFrame is empty. Cannot proceed with processing.")        
+            raise RuntimeError(
+                "The DataFrame is empty. Cannot proceed with processing."
+            )
 
         # Add ingestion_start_time column to the DataFrame
         df = df.withColumn("ingestion_start_time", lit(ingestion_start_time))
@@ -114,7 +130,6 @@ def process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, outp
         logger.info(f"Writing to: {output_s3_path}")
         df.write.parquet(output_s3_path, mode="overwrite")
         logger.info(f"Successfully processed and saved file: {file_name}")
-        
 
     except Exception as e:
         logger.error(f"Error processing file {file_name}: {e}")
@@ -127,7 +142,9 @@ def process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, outp
             )
             logger.info(f"Successfully copied file {file_name} to error bucket.")
         except ClientError as copy_error:
-            logger.error(f"Failed to copy file {file_name} to error bucket: {copy_error}")
+            logger.error(
+                f"Failed to copy file {file_name} to error bucket: {copy_error}"
+            )
 
         # Notify SNS about the error
         error_message = f"Error processing file {file_name} in environment {env_name}. Original file copied to error bucket."
@@ -155,7 +172,9 @@ def main():
     output_bucket = args["output_bucket"]
     error_bucket = args["error_bucket"]
     file_path = args["file_path"]
-    file_names = args["file_names"].split(",")  # Expecting a comma-separated list of file names
+    file_names = args["file_names"].split(
+        ","
+    )  # Expecting a comma-separated list of file names
     env_name = args["env_name"]
     sns_topic_arn = args["sns_topic_arn"]  # Extract SNS topic ARN
 
@@ -180,7 +199,19 @@ def main():
     # Process each file
     current_time = datetime.utcnow()
     for file_name in file_names:
-        process_file(spark, s3_client, sns_client, sns_topic_arn, input_bucket, output_bucket, error_bucket, file_path, file_name, env_name, current_time)
+        process_file(
+            spark,
+            s3_client,
+            sns_client,
+            sns_topic_arn,
+            input_bucket,
+            output_bucket,
+            error_bucket,
+            file_path,
+            file_name,
+            env_name,
+            current_time,
+        )
 
     # Stop the Spark session
     spark.stop()

@@ -89,7 +89,7 @@ def create_glue_table(
                 "outputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",  # Output format for the table
                 "serdeInfo": {
                     "serializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",  # SerDe library
-                    "parameters": {'classification': 'Parquet'},
+                    "parameters": {"classification": "Parquet"},
                 },
             },
             "tableType": "EXTERNAL_TABLE",  # Define the table type as external
@@ -167,7 +167,9 @@ class AthenaTable(Construct):
             permissions=["ALTER", "DROP", "DESCRIBE", "CREATE_TABLE"],
         )
 
-        grant_staging_crawler_database_access.node.add_dependency(glue_database, tag_association)
+        grant_staging_crawler_database_access.node.add_dependency(
+            glue_database, tag_association
+        )
 
         for file_name in staging_file_names:
             # Remove file type from file name
@@ -247,7 +249,9 @@ class AthenaTable(Construct):
             permissions=["ALTER", "DROP", "DESCRIBE", "CREATE_TABLE"],
         )
 
-        grant_transformation_crawler_database_access.node.add_dependency(glue_database, tag_association)
+        grant_transformation_crawler_database_access.node.add_dependency(
+            glue_database, tag_association
+        )
 
         for file_name in transformation_file_names:
             table_name = f"transformation_{os.path.splitext(file_name)[0]}"
@@ -290,7 +294,9 @@ class AthenaTable(Construct):
             name=f"{env_name}_transformation_crawler",
             role=crawler_role_transformation.role_arn,
             database_name=glue_database.ref,
-            targets={"s3Targets": [{"path": f"s3://{transformation_bucket}/{env_name}/"}]},
+            targets={
+                "s3Targets": [{"path": f"s3://{transformation_bucket}/{env_name}/"}]
+            },
         )
 
         # Output the Glue crawler name using add_output
