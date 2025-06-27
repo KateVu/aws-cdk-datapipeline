@@ -33,16 +33,12 @@ class StepFunction(Construct):
             self,
             "IngestionGlueJob",
             glue_job_name=ingestion_glue_job_name,
-            integration_pattern=sfn.IntegrationPattern.RUN_JOB,
+            integration_pattern=sfn.IntegrationPattern.RUN_JOB,  # Wait for job completion
             arguments=sfn.TaskInput.from_object(
                 {
                     "--file_path": sfn.JsonPath.string_at("$.file_path"),  # Pass file_path from input
                 }
             ),
-        ).add_retry(
-            interval=Duration.seconds(30),  # Retry after 30 seconds
-            max_attempts=3,  # Retry up to 3 times
-            backoff_rate=2.0,  # Exponential backoff
         )
 
         # Define the transformation Glue job task
@@ -50,10 +46,7 @@ class StepFunction(Construct):
             self,
             "TransformationGlueJob",
             glue_job_name=transformation_glue_job_name,
-        ).add_retry(
-            interval=Duration.seconds(30),
-            max_attempts=3,
-            backoff_rate=2.0,
+            integration_pattern=sfn.IntegrationPattern.RUN_JOB,  # Wait for job completion
         )
 
         # Define the Glue crawler staging task
@@ -66,10 +59,6 @@ class StepFunction(Construct):
             iam_resources=[
                 f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_staging_name}"
             ],
-        ).add_retry(
-            interval=Duration.seconds(30),
-            max_attempts=3,
-            backoff_rate=2.0,
         )
 
         # Define the Glue crawler transformation task
@@ -82,10 +71,6 @@ class StepFunction(Construct):
             iam_resources=[
                 f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_transformation_name}"
             ],
-        ).add_retry(
-            interval=Duration.seconds(30),
-            max_attempts=3,
-            backoff_rate=2.0,
         )
 
         # Define the SNS publish task
@@ -99,10 +84,6 @@ class StepFunction(Construct):
                 "Message": f"Step Function {env_name}-DataPipelineStateMachine has completed successfully.",
             },
             iam_resources=[f"arn:aws:sns:{region}:{account}:*"],
-        ).add_retry(
-            interval=Duration.seconds(30),
-            max_attempts=3,
-            backoff_rate=2.0,
         )
 
         # Run transformation Glue job and Glue crawler staging in parallel
