@@ -98,7 +98,7 @@ def create_glue_table(
     return glue_table
 
 
-class AthenaTable(Construct):
+class GlueTable(Construct):
     def __init__(
         self,
         scope: Construct,

@@ -36,7 +36,9 @@ class StepFunction(Construct):
             integration_pattern=sfn.IntegrationPattern.RUN_JOB,  # Wait for job completion
             arguments=sfn.TaskInput.from_object(
                 {
-                    "--file_path": sfn.JsonPath.string_at("$.file_path"),  # Pass file_path from input
+                    "--file_path": sfn.JsonPath.string_at(
+                        "$.file_path"
+                    ),  # Pass file_path from input
                 }
             ),
         )
@@ -86,12 +88,89 @@ class StepFunction(Construct):
             iam_resources=[f"arn:aws:sns:{region}:{account}:*"],
         )
 
+        # Wait state for the staging crawler
+        wait_staging = sfn.Wait(
+            self,
+            "WaitForStagingCrawler",
+            time=sfn.WaitTime.duration(Duration.seconds(30)),
+        )
+
+        # GetCrawler state for the staging crawler
+        get_staging_crawler = tasks.CallAwsService(
+            self,
+            "GetStagingCrawlerState",
+            service="glue",
+            action="getCrawler",
+            parameters={"Name": glue_crawler_staging_name},
+            iam_resources=[
+                f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_staging_name}"
+            ],
+        )
+
+        # Success and fail states for the staging crawler
+        staging_success = sfn.Succeed(self, "StagingCrawlerSuccess")
+        staging_failed = sfn.Fail(self, "StagingCrawlerFailed")
+
+        # Choice state for the staging crawler
+        staging_crawler_complete = sfn.Choice(self, "StagingCrawlerComplete")
+        staging_crawler_complete.when(
+            sfn.Condition.string_equals("$.Crawler.State", "READY"), staging_success
+        )
+        staging_crawler_complete.when(
+            sfn.Condition.string_equals("$.Crawler.State", "FAILED"), staging_failed
+        )
+        staging_crawler_complete.otherwise(wait_staging)
+
+        # Wait state for the transformation crawler
+        wait_transformation = sfn.Wait(
+            self,
+            "WaitForTransformationCrawler",
+            time=sfn.WaitTime.duration(Duration.seconds(30)),
+        )
+
+        # GetCrawler state for the transformation crawler
+        get_transformation_crawler = tasks.CallAwsService(
+            self,
+            "GetTransformationCrawlerState",
+            service="glue",
+            action="getCrawler",
+            parameters={"Name": glue_crawler_transformation_name},
+            iam_resources=[
+                f"arn:aws:glue:{region}:{account}:crawler/{glue_crawler_transformation_name}"
+            ],
+        )
+
+        # Success and fail states for the transformation crawler
+        transformation_success = sfn.Succeed(self, "TransformationCrawlerSuccess")
+        transformation_failed = sfn.Fail(self, "TransformationCrawlerFailed")
+
+        # Choice state for the transformation crawler
+        transformation_crawler_complete = sfn.Choice(
+            self, "TransformationCrawlerComplete"
+        )
+        transformation_crawler_complete.when(
+            sfn.Condition.string_equals("$.Crawler.State", "READY"),
+            transformation_success,
+        )
+        transformation_crawler_complete.when(
+            sfn.Condition.string_equals("$.Crawler.State", "FAILED"),
+            transformation_failed,
+        )
+        transformation_crawler_complete.otherwise(wait_transformation)
+
         # Run transformation Glue job and Glue crawler staging in parallel
         parallel_tasks = sfn.Parallel(self, "ParallelTasks")
         parallel_tasks.branch(
             transformation_glue_task.next(glue_crawler_transformation_task)
+            .next(wait_transformation)
+            .next(get_transformation_crawler)
+            .next(transformation_crawler_complete)
         )
-        parallel_tasks.branch(glue_crawler_staging_task)
+        parallel_tasks.branch(
+            glue_crawler_staging_task.next(wait_staging)
+            .next(get_staging_crawler)
+            .next(staging_crawler_complete)
+        )
 
         # Chain the ingestion Glue job, parallel tasks, transformation crawler, and SNS publish task
         definition = ingestion_glue_task.next(parallel_tasks).next(sns_publish_task)

@@ -3,7 +3,7 @@ from aws_cdk import aws_sns as sns
 from constructs import Construct
 from aws_cdk_glue.glue.glue_contruct import GlueContruct
 from aws_cdk_glue.step_function.step_function import StepFunction
-from aws_cdk_glue.athena.athena_table import AthenaTable
+from aws_cdk_glue.athena.athena_table import GlueTable
 from aws_cdk_glue.utils.utils import add_output  # Import the utility method
 
 
@@ -54,7 +54,7 @@ class DataPipelineStack(Stack):
         )
 
         # Create the Athena table
-        athena_table = AthenaTable(
+        athena_table = GlueTable(
             self,
             "AthenaTable",
             env_name=env_name,
