@@ -3,7 +3,7 @@
 
 ## Getting started
 ### Architecture
-
+![architecture](https://github.com/KateVu/aws-cdk-glue/blob/main/images/architecture.png)
 ### Prerequisites: 
 ### How to deploy
 - Obtain aws credential for the aws account (check ~/.aws/credential or ~/.aws/cli/cache)
