@@ -2,14 +2,16 @@
 
 
 ## Getting started
+### Architecture
+![architecture](https://github.com/KateVu/aws-cdk-glue/blob/main/images/architecture.png)
 ### Prerequisites: 
 ### How to deploy
 - Obtain aws credential for the aws account (check ~/.aws/credential or ~/.aws/cli/cache)
-- export your environment variable if you do not want to use the default one. This variable is used in bin/index.ts
+- export your environment variable if you do not want to use the default one. This variable is used in app.py
 ```
-const envName = process.env.ENVIRONMENT_NAME || 'kate'
-const accountName = process.env.ACCOUNT_NAME || 'sandpit1'
-const region = process.env.REGION || 'ap-southeast-2'
+env_name = os.getenv("ENVIRONMENT_NAME", "kate")
+account_name = os.getenv("ACCOUNT_NAME", "sandpit2")
+region = os.getenv("REGION", "ap-southeast-2")
 ```
 
 
